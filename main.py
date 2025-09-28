@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pdfplumber
 import base64
 from typing import List
+from io import BytesIO
 
 app = FastAPI(title="Lovable PDF Parser")
 
@@ -48,9 +49,12 @@ async def parse_pdf(file: UploadFile = File(...)):
                     # Crop the image from the page
                     cropped = page.within_bbox((img['x0'], img['top'], img['x1'], img['bottom']))
                     img_obj = cropped.to_image(resolution=150)
-                    # Convert to base64 string
-                    img_bytes = img_obj.original.save(None, format="PNG")
-                    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+                    
+                    # Convert image to bytes using in-memory buffer
+                    buf = BytesIO()
+                    img_obj.original.save(buf, format="PNG")
+                    buf.seek(0)
+                    img_base64 = base64.b64encode(buf.read()).decode("utf-8")
                     images.append(img_base64)
         
         return {
@@ -59,7 +63,7 @@ async def parse_pdf(file: UploadFile = File(...)):
             "metadata": metadata,
             "text": text_content,
             "tables": tables,
-            "images_base64": images  # You can decode this in frontend to display
+            "images_base64": images
         }
 
     except Exception as e:
